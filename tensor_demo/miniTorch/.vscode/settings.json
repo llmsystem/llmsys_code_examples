@@ -1,0 +1,19 @@
+{
+  "python.pythonPath": "venv/bin/python",
+  "python.testing.unittestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "restructuredtext.confPath": "${workspaceFolder}/docs/source",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.banditEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.mypyEnabled": false,
+  "python.linting.flake8Args": [
+    "--ignore",
+    "N801, E203, E266, E501, W503, F812, E741, N803, N802, N806"
+  ],
+}
