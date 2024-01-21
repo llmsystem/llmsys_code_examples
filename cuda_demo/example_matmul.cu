@@ -7,10 +7,12 @@
 
 __global__ void MatmulKernel(const float* a, const float* b, float* out, 
                              int M, int N, int P) {
+  // Calculate the global thread index and the row and column it corresponds to
+  // Every thread will compute one element of the output matrix
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx >= M * P) return;
   int row = idx / P;
   int col = idx % P;
+  // Compute the summation of the dot product of the row of a and the column of b
   if (row < M && col < P) {
     float sum = 0.0;
     for (int i = 0; i < N; i++) {
@@ -21,6 +23,10 @@ __global__ void MatmulKernel(const float* a, const float* b, float* out,
 }
 
 extern "C" {
+
+// This functions takes in arrays which are already on the GPU
+// and will return arrays which are also on the GPU
+// Copying values between the device memory and host memory is done in the python codes
 
 void Matmul(const float* a, const float* b, float* c, int M, int N, int P) {
     int n = M * P;
