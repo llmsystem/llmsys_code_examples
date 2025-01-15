@@ -87,9 +87,9 @@ int main() {
   int n = 1024;
 
   // Host vectors
-  vector<int> h_a(N * N);
-  vector<int> h_b(N * N);
-  vector<int> h_c(N * N);
+  vector<int> h_a(n);
+  vector<int> h_b(n);
+  vector<int> h_c(n);
 
   // Initialize matrices
   generate(h_a.begin(), h_a.end(), []() { return rand() % 100; });
@@ -100,7 +100,7 @@ int main() {
   cudaDeviceSynchronize();
 
   // Check result
-  verify_result_add(h_a, h_b, h_c, N);
+  verify_result_add(h_a, h_b, h_c, n);
 
   cout << "COMPLETED SUCCESSFULLY\n";
 }
