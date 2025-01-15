@@ -1,8 +1,16 @@
 #include <cuda_runtime.h>
-
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
+#include <cassert>
+#include <cstdlib>
+#include <functional>
+#include <vector>
+
+using namespace std;
+using std::generate;
+using std::vector;
 
 __global__ void VecAddKernel(int* A, int* B, int* C, int n) {
   // blockDim is size of block along x-axis
