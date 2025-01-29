@@ -67,18 +67,15 @@ void VecAddCUDA2(int* Acpu, int* Bcpu, int* Ccpu, int n) {
 }
 
 // Check result on the CPU
-void verify_result_add(vector<int> &a, vector<int> &b, vector<int> &c, int N) {
-  // For every row...
+void verify_result_vecadd(vector<int> &a, vector<int> &b, vector<int> &c, int N) {
+  // For every element...
   for (int i = 0; i < N; i++) {
-    // For every column...
-    for (int j = 0; j < N; j++) {
-      // For every element in the row-column pair
-      // Check against the CPU result
-      if (a[i * N + j] + b[i * N + j] != c[i * N + j]) {
-        printf("Error in (%d, %d): %d + %d != %d\n", i, j, a[i * N + j], b[i * N + j], c[i * N + j]);
-      }
-      assert(a[i * N + j] + b[i * N + j] == c[i * N + j]);
+    // For every element in the row-column pair
+    // Check against the CPU result
+    if (a[i] + b[i] != c[i]) {
+      printf("Error in (%d): %d + %d != %d\n", i, a[i], b[i], c[i]);
     }
+    assert(a[i] + b[i] == c[i]);
   }
 }
 
@@ -99,8 +96,15 @@ int main() {
 
   cudaDeviceSynchronize();
 
-  // Check result
-  verify_result_add(h_a, h_b, h_c, n);
+  // Check CUDA execution
+  cudaError_t err = cudaGetLastError();
+  if (err != cudaSuccess) {
+    fprintf(stderr, "Error: %s\n", cudaGetErrorString(err));
+    // Handle the error (e.g., by exiting the program)
+  }
 
-  cout << "COMPLETED SUCCESSFULLY\n";
+  // Check result
+  verify_result_vecadd(h_a, h_b, h_c, n);
+
+  cout << "Vector add verified! COMPLETED SUCCESSFULLY\n";
 }
