@@ -15,27 +15,29 @@ void matrix_multiply(float **a, float **b, float **c, float N) {
     }
 }
 
+/**
+ * @brief compute C=A*B using tile size TILE_WIDTH
+ * 
+ * @param d_A matrix A
+ * @param d_B matrix B
+ * @param d_C result matrix C
+ * @param N size of matrix (number of rows and columns)
+ * 
+ * hint: define two matrices of size TILE_WIDTH x TILE_WIDTH in shared memory
+ * sliding the tile along the matrix, compute partial sum of product.
+ */
+__global__ void MatMulTiledKernel(float* d_A, float* d_B, float* d_C, int N) {
+    // define two matrices in share memory
 
-__global__ void MatMulTiledKernel(float* d_M, float* d_N, float* d_P, int N) {
-    __shared__ float Mds[TILE_WIDTH][TILE_WIDTH];
-    __shared__ float Nds[TILE_WIDTH][TILE_WIDTH];
 
-    int bx = blockIdx.x;
-    int by = blockIdx.y;
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
+    // define the row and column in the result matrix of current thread
 
-    int row = by * TILE_WIDTH + ty;
-    int col = bx * TILE_WIDTH + tx;
-    float Pvalue = 0;
-    for(int ph = 0; ph < N/TILE_WIDTH; ++ph) {
-        Mds[ty][tx] = d_M[row * N + ph * TILE_WIDTH + tx];
-        Nds[ty][tx] = d_N[(ph * TILE_WIDTH + ty) * N + col];
-        __syncthreads();
-        for(int k = 0; k < TILE_WIDTH; ++k) {
-            Pvalue += Mds[ty][k] * Nds[k][tx];
-        }
-        __syncthreads();
-    }
-    d_P[row * N + col] = Pvalue;
+
+    // iterate over tiles along row and column in d_A and d_B
+
+
+
+    // store result
+
+    
 }
