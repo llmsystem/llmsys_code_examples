@@ -7,7 +7,7 @@ This example is adapted from [PyTorch Word Language Model](https://github.com/py
 ### Running Training on a Single GPU
 To train the model on a single GPU, run the following command:
 ```
-torchrun --nproc_per_node=1 update_main.py
+torchrun --nproc_per_node=1 main.py
 ```
 
 This will start training with the default settings. You should see output similar to:
@@ -23,7 +23,7 @@ This will start training with the default settings. You should see output simila
 ### Running Distributed Data Parallel (DDP) Training on Multiple GPUs
 Replace <num_of_gpus> with the number of GPUs you wish to use. For example, to use 2 GPUs:
 ```
-torchrun --nproc_per_node=2 update_main.py --ddp
+torchrun --nproc_per_node=2 main.py --ddp
 ```
 
 This will start the training process with DDP enabled, and you should see output similar to:
@@ -37,3 +37,6 @@ This will start the training process with DDP enabled, and you should see output
 ```
 
 You will see the train, validation loss and perplexity plots (training\_metrics*.png).
+
+### Debugging DDP
+If the ddp initialization is stucked, it is likely that your GPUs are not connected via NVLink, please use `export NCCL_P2P_DISABLE=1`.

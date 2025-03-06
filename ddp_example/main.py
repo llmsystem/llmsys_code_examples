@@ -29,49 +29,6 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=128)
     return parser.parse_args()
 
-def evaluate(model, criterion, dataloader, ntokens, device, ddp=False):
-    model.eval()
-    total_loss = 0.
-    with torch.no_grad():
-        for data, targets in dataloader:
-            data = data.squeeze(0)
-            targets = targets.squeeze(0)
-            output = model(data)
-            output = output.view(-1, ntokens)
-            total_loss = total_loss + criterion(output, targets).item()
-
-    if ddp:
-        total_loss_tensor = torch.tensor(total_loss, device=device)
-        dist.all_reduce(total_loss_tensor, op=dist.ReduceOp.SUM)
-    
-        return (total_loss_tensor / dist.get_world_size() / len(dataloader)).item()
-    else:
-        return total_loss / len(dataloader)
-
-def train(model, criterion, dataloader, optimizer, ntokens, lr, device, ddp=False):
-    model.train()
-    total_loss = 0.
-    start_time = time.time()
-    for data, targets in dataloader:
-        model.zero_grad()
-        data = data.squeeze(0).clone()
-        targets = targets.squeeze(0).clone()
-        output = model(data)
-        targets = targets.view(-1)
-        output = output.view(-1, ntokens)
-        loss = criterion(output, targets)
-        loss.backward()
-        optimizer.step()
-        total_loss = total_loss + loss.item()
-    
-    if ddp:
-        total_loss_tensor = torch.tensor(total_loss, device=device)
-        dist.all_reduce(total_loss_tensor, op=dist.ReduceOp.SUM)
-    
-        return (total_loss_tensor / dist.get_world_size() / len(dataloader)).item()
-    else:
-        return total_loss / len(dataloader)
-
 def plot_training_metrics(train_losses, val_losses, ppl_values, save_path='training_metrics.png', ddp=False):
     if ddp:
         save_path = save_path.replace('.png', '_ddp.png')
@@ -91,6 +48,102 @@ def plot_training_metrics(train_losses, val_losses, ppl_values, save_path='train
     plt.savefig(save_path)
     print(f"Plot saved as {save_path}")
 
+class Trainer:
+    def __init__(self, args, model, train_loader, val_loader, test_loader, ntokens, device):
+        self.args = args
+        self.device = device
+        self.ntokens = ntokens
+        self.model = model.to(device)
+        if args.ddp:
+            self.model = DDP(self.model, device_ids=[device.index], find_unused_parameters=True)
+        
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.test_loader = test_loader
+        self.criterion = nn.NLLLoss()
+        self.lr = 0.05
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
+        self.best_val_loss = None
+
+    def train_one_epoch(self, epoch):
+        if self.args.ddp:
+            self.train_loader.sampler.set_epoch(epoch)
+
+        self.model.train()
+        total_loss = 0.
+        start_time = time.time()
+        for data, targets in self.train_loader:
+            self.model.zero_grad()
+            data = data.squeeze(0).clone()
+            targets = targets.squeeze(0).clone()
+            output = self.model(data)
+            targets = targets.view(-1)
+            output = output.view(-1, self.ntokens)
+            loss = self.criterion(output, targets)
+            loss.backward()
+            self.optimizer.step()
+            total_loss = total_loss + loss.item()
+
+        if self.args.ddp:
+            total_loss_tensor = torch.tensor(total_loss, device=self.device)
+            dist.all_reduce(total_loss_tensor, op=dist.ReduceOp.SUM)
+
+            return (total_loss_tensor / dist.get_world_size() / len(self.train_loader)).item()
+        else:
+            return total_loss / len(self.train_loader)
+
+    def evaluate_model(self, loader):
+        self.model.eval()
+        total_loss = 0.
+        with torch.no_grad():
+            for data, targets in loader:
+                data = data.squeeze(0)
+                targets = targets.squeeze(0)
+                output = self.model(data)
+                output = output.view(-1, self.ntokens)
+                total_loss = total_loss + self.criterion(output, targets).item()
+
+        if self.args.ddp:
+            total_loss_tensor = torch.tensor(total_loss, device=self.device)
+            dist.all_reduce(total_loss_tensor, op=dist.ReduceOp.SUM)
+
+            return (total_loss_tensor / dist.get_world_size() / len(loader)).item()
+        else:
+            return total_loss / len(loader)
+
+    def train_model(self, num_epochs=5):
+        train_losses, val_losses, ppl_values = [], [], []
+        try:
+            for epoch in range(1, num_epochs + 1):
+                epoch_start_time = time.time()
+                train_loss = self.train_one_epoch(epoch)
+                val_loss = self.evaluate_model(self.val_loader)
+                ppl = math.exp(val_loss)
+                
+                if not self.args.ddp or (self.args.ddp and self.device.index == 0):
+                    train_losses.append(train_loss)
+                    val_losses.append(val_loss)
+                    ppl_values.append(ppl)
+                    print(f'| Epoch {epoch} | Time: {time.time() - epoch_start_time:.2f}s | Train Loss {train_loss:.2f} | Valid Loss {val_loss:.2f} | Perplexity {ppl:.2f}')
+                    
+                    if self.best_val_loss is None or val_loss < self.best_val_loss:
+                        torch.save(self.model, 'model.pt')
+                        self.best_val_loss = val_loss
+                    else:
+                        self.lr /= 4.0
+        except KeyboardInterrupt:
+            print('Exiting from training early')
+        
+        self.test_model()
+        if not self.args.ddp or (self.args.ddp and self.device.index == 0):
+            plot_training_metrics(train_losses, val_losses, ppl_values, ddp=self.args.ddp)
+
+    def test_model(self):
+        test_loss = self.evaluate_model(self.test_loader)
+        if not self.args.ddp or (self.args.ddp and self.device.index == 0):
+            print(f'| End of Training | Test Loss {test_loss:.2f} | Test Perplexity {math.exp(test_loss):.2f}')
+
+
 def main():
     args = parse_args()
     
@@ -103,7 +156,6 @@ def main():
 
     torch.manual_seed(42)
     corpus = data.Corpus('./data/wikitext-2')
-    
     ntokens = len(corpus.dictionary)
     seq_len = 40
     
@@ -116,45 +168,9 @@ def main():
     val_loader = get_dataloader(corpus.valid, seq_len=40)
     test_loader = get_dataloader(corpus.test, seq_len=40) 
 
-
-    model_inst = model.TransformerModel(ntokens, 256, 8, 256, 4, 0.2).to(device)
-    if args.ddp:
-        model_inst = DDP(model_inst, device_ids=[rank])
-        
-    optimizer = optim.SGD(model_inst.parameters(), lr=0.05)
-    criterion = nn.NLLLoss()
-    
-    lr = 0.2
-    best_val_loss = None
-    train_losses, val_losses, ppl_values = [], [], []
-    num_epochs = 5
-    try:
-        for epoch in range(1, num_epochs+1):
-            if args.ddp:
-                sampler.set_epoch(epoch)
-            epoch_start_time = time.time()
-            train_loss = train(model_inst, criterion, train_loader, optimizer, ntokens, lr, device, args.ddp)
-            val_loss = evaluate(model_inst, criterion, val_loader, ntokens, device, args.ddp)
-            ppl = math.exp(val_loss)
-            if not args.ddp or (args.ddp and rank == 0):
-                train_losses.append(train_loss)
-                val_losses.append(val_loss)
-                ppl_values.append(ppl)
-                print(f'| Epoch {epoch} | Time: {time.time() - epoch_start_time:.2f}s | Train Loss {train_loss:.2f} | Valid Loss {val_loss:.2f} | Perplexity {ppl:.2f}')
-                if not best_val_loss or val_loss < best_val_loss:
-                    torch.save(model_inst, 'model.pt')
-                    best_val_loss = val_loss
-                else:
-                    lr /= 4.0
-    except KeyboardInterrupt:
-        print('Exiting from training early')
-
-    test_loss = evaluate(model_inst, criterion, test_loader, ntokens, device, args.ddp)
-    if not args.ddp or (args.ddp and rank == 0):
-        print(f'| End of Training | Test Loss {test_loss:.2f} | Test Perplexity {math.exp(test_loss):.2f}')
-        plot_training_metrics(train_losses, val_losses, ppl_values, args.ddp)
+    model_inst = model.TransformerModel(ntokens, 256, 8, 256, 4, 0.2)
+    trainer = Trainer(args, model_inst, train_loader, val_loader, test_loader, ntokens, device)
+    trainer.train_model()
 
 if __name__ == "__main__":
     main()
-
-
