@@ -1,0 +1,15 @@
+numpy==1.26.4
+torch==2.5.1
+torchaudio==2.5.1
+torcheval==0.0.7
+torchvision==0.20.1
+nvidia-cuda-cupti-cu11==11.8.87
+nvidia-cuda-cupti-cu12==12.4.127
+nvidia-cuda-nvrtc-cu11==11.7.99
+nvidia-cuda-nvrtc-cu12==12.4.127
+nvidia-cuda-runtime-cu11==11.7.99
+nvidia-cuda-runtime-cu12==12.4.127
+matplotlib==3.7.1
+matplotlib-inline==0.1.6
+nvidia-nccl-cu11==2.20.5
+nvidia-nccl-cu12==2.21.5

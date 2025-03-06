@@ -55,7 +55,7 @@ class Trainer:
         self.ntokens = ntokens
         self.model = model.to(device)
         if args.ddp:
-            self.model = DDP(self.model, device_ids=[device.index], find_unused_parameters=True)
+            self.model = DDP(self.model, device_ids=[device.index])
         
         self.train_loader = train_loader
         self.val_loader = val_loader
