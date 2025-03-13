@@ -54,14 +54,15 @@ class Trainer:
         self.device = device
         self.ntokens = ntokens
         self.model = model.to(device)
+        self.lr = 0.05
         if args.ddp:
             self.model = DDP(self.model, device_ids=[device.index])
+            self.lr *= dist.get_world_size() #scale learning rate to compensate gradient averaging
         
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.criterion = nn.NLLLoss()
-        self.lr = 0.05
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
         self.best_val_loss = None
 
@@ -163,7 +164,7 @@ def main():
     corpus.valid = TextDataset(corpus.valid, seq_len, device, args.batch_size)
     corpus.test = TextDataset(corpus.test, seq_len, device, args.batch_size)
 
-    sampler = DistributedSampler(corpus.train, world_size, rank) if args.ddp else None
+    sampler = DistributedSampler(corpus.train, world_size, rank, shuffle=False) if args.ddp else None
     train_loader = get_dataloader(corpus.train, seq_len=40, sampler=sampler)
     val_loader = get_dataloader(corpus.valid, seq_len=40)
     test_loader = get_dataloader(corpus.test, seq_len=40) 
@@ -171,6 +172,9 @@ def main():
     model_inst = model.TransformerModel(ntokens, 256, 8, 256, 4, 0.2)
     trainer = Trainer(args, model_inst, train_loader, val_loader, test_loader, ntokens, device)
     trainer.train_model()
+
+    if args.ddp:
+        cleanup_ddp()
 
 if __name__ == "__main__":
     main()
