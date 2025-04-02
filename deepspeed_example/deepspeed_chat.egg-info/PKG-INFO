@@ -1,0 +1,18 @@
+Metadata-Version: 2.2
+Name: deepspeed-chat
+Version: 0.1
+Home-page: https://github.com/deepspeedai/DeepSpeedExamples/tree/master/applications/DeepSpeed-Chat
+Requires-Dist: datasets>=2.8.0
+Requires-Dist: sentencepiece>=0.1.97
+Requires-Dist: protobuf==3.20.3
+Requires-Dist: accelerate>=0.15.0
+Requires-Dist: torch>=1.12.0
+Requires-Dist: deepspeed>=0.9.2
+Requires-Dist: transformers!=4.33.2,>=4.31.0
+Requires-Dist: tensorboard
+Provides-Extra: azureml
+Requires-Dist: azure-ml-component; extra == "azureml"
+Requires-Dist: azureml-core; extra == "azureml"
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist

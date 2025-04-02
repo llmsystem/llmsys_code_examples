@@ -1,0 +1,6 @@
+setup.py
+deepspeed_chat.egg-info/PKG-INFO
+deepspeed_chat.egg-info/SOURCES.txt
+deepspeed_chat.egg-info/dependency_links.txt
+deepspeed_chat.egg-info/requires.txt
+deepspeed_chat.egg-info/top_level.txt
