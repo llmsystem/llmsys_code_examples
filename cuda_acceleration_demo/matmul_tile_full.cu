@@ -23,7 +23,7 @@ void matrix_multiply(float **a, float **b, float **c, float N) {
  * @param d_C result matrix C
  * @param N size of matrix (number of rows and columns)
  */
-__global__ void MatMulTiledKernel(float* d_A, float* d_B, float* d_C, int N) {
+__global__ void matMulTiled(float* d_A, float* d_B, float* d_C, int N) {
 	__shared__ float As[TILE_WIDTH][TILE_WIDTH];
 	__shared__ float Bs[TILE_WIDTH][TILE_WIDTH];
 
@@ -41,4 +41,85 @@ __global__ void MatMulTiledKernel(float* d_A, float* d_B, float* d_C, int N) {
 		__syncthreads();
 	}
 	d_C[row * N + col] = Cvalue;
+}
+
+/**
+ * simple matrix multiplication kernel (no tiling)
+ * 
+ * @param a 
+ * @param b 
+ * @param c 
+ * @param N 
+ */
+__global__ void matMul(const int *a, const int *b, int *c, int N) {
+  // Compute each thread's global row and column index
+  int row = blockIdx.x * blockDim.x + threadIdx.x;
+  int col = blockIdx.y * blockDim.y + threadIdx.y;
+  if (row >= N || col >= N) return;
+  // Iterate over row, and down column
+  c[row * N + col] = 0;
+  for (int k = 0; k < N; k++) {
+    // Accumulate results for a single element
+    c[row * N + col] += a[row * N + k] * b[k * N + col];
+  }
+}
+
+void run_benchmark(int N){
+    size_t size = N * N * sizeof(float);
+    vector<float> HA(N * N , 1.5f);
+    vector<float> HB(N * N, 2.0f);
+    vector<float> HC(N * N, 0.0f);
+
+    float *DA, *DB, *DC;
+    cudaMalloc(&DA, size);
+    cudaMalloc(&DB, size);
+    cudaMalloc(&DC, size);
+
+    cudaMemcpy(DA, HA.data(), size, cudaMemcpyHostToDevice);
+    cudaMemcpy(DB, HB.data(), size, cudaMemcpyHostToDevice);
+
+    dim3 dimBlock(TILE_WIDTH, TILE_WIDTH);
+    dim3 dimGrid((N + TILE_WIDTH - 1) / TILE_WIDTH, (N + TILE_WIDTH - 1) / TILE_WIDTH);
+
+    // GPU warmup
+    matMul<<<dimGrid, dimBlock>>>(DA, DB, DC, N);
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+    matMul<<<dimGrid, dimBlock>>>(DA, DB, DC, N);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float naive_ms = 0.0f;
+    cudaEventElapsedTime(&naive_ms, start, stop);
+
+
+    cudaEventRecord(start);
+    matMulTiled<<<dimGrid, dimBlock>>>(DA, DB, DC, N);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    float tile_ms = 0.0f;
+    cudaEventElapsedTime(&tile_ms, start, stop);
+
+    // output to input into python later
+    cout << N << "," << naive_ms << "," << tile_ms << endl;
+
+    cudaFree(DA);
+    cudaFree(DB);
+    cudaFree(DC);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+
+
+}
+
+int main(){
+    cout<<"Naive,Tiled"<<endl;
+    vector<int> sizes{512, 1024, 2048, 4096, 8192, 16384};
+    for (int size : sizes){
+        run_benchmark(size);
+    }
+    return 0;
 }
