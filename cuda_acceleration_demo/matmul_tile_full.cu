@@ -1,8 +1,10 @@
 #include <cuda_runtime.h>
 #include <iostream>
+#include <vector>
+#include <chrono>
 
 using namespace std;
-#define TILE_WIDTH 16
+#define TILE_WIDTH 32
 
 void matrix_multiply(float **a, float **b, float **c, float N) {
     for (int i = 0; i < N; i++) {

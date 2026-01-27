@@ -1,5 +1,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
+#include <vector>
+#include <chrono>
 
 using namespace std;
 #define TILE_WIDTH 32
