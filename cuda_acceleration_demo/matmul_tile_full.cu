@@ -76,7 +76,7 @@ void run_benchmark(int N){
 
     static mt19937 gen{random_device{}()}; 
     uniform_real_distribution<float> dis(-1, 1);
-    generate(HA.begin(), HA.end(), []() { return dis(gen); });
+    generate(HA.begin(), HA.end(), [&gen, &dis]() { return dis(gen); });
     generate(HB.begin(), HB.end(), []() { return dis(gen); });
 
     float *DA, *DB, *DC;
