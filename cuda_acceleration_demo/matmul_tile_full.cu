@@ -103,7 +103,10 @@ void run_benchmark(int N){
     cudaEventSynchronize(stop);
     float naive_ms = 0.0f;
     cudaEventElapsedTime(&naive_ms, start, stop);
-
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cout << "CUDA Error: " << cudaGetErrorString(err) << endl;
+    }
 
     cudaEventRecord(start);
     matMulTiled<<<dimGrid, dimBlock>>>(DA, DB, DC, N);
@@ -111,6 +114,10 @@ void run_benchmark(int N){
     cudaEventSynchronize(stop);
     float tile_ms = 0.0f;
     cudaEventElapsedTime(&tile_ms, start, stop);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cout << "CUDA Error: " << cudaGetErrorString(err) << endl;
+    }
 
     // output to input into python later
     cout << N << "," << naive_ms << "," << tile_ms << endl;
@@ -120,13 +127,11 @@ void run_benchmark(int N){
     cudaFree(DC);
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
-
-
 }
 
 int main(){
     cout<<"Naive,Tiled"<<endl;
-    vector<int> sizes{512, 1024, 2048, 4096, 8192, 16384, 65536, 131072};
+    vector<int> sizes{512, 1024, 2048, 4096, 8192, 16384};
     for (int size : sizes){
         run_benchmark(size);
     }
