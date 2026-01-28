@@ -131,7 +131,7 @@ void run_benchmark(int N){
 
 int main(){
     cout<<"Naive,Tiled"<<endl;
-    vector<int> sizes{512, 1024, 2048, 4096, 8192, 16384};
+    vector<int> sizes{512, 1024, 2048, 4096, 8192};
     for (int size : sizes){
         run_benchmark(size);
     }
