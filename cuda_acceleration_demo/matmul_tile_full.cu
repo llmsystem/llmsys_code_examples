@@ -114,7 +114,7 @@ void run_benchmark(int N){
     cudaEventSynchronize(stop);
     float tile_ms = 0.0f;
     cudaEventElapsedTime(&tile_ms, start, stop);
-    cudaError_t err = cudaGetLastError();
+    err = cudaGetLastError();
     if (err != cudaSuccess) {
         cout << "CUDA Error: " << cudaGetErrorString(err) << endl;
     }
