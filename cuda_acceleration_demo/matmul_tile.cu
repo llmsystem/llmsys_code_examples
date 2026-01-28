@@ -2,6 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
+#include <algorithm>
+#include <random>
 
 using namespace std;
 #define TILE_WIDTH 32
@@ -28,7 +30,7 @@ void matrix_multiply(float **a, float **b, float **c, float N) {
  * hint: define two matrices of size TILE_WIDTH x TILE_WIDTH in shared memory
  * sliding the tile along the matrix, compute partial sum of product.
  */
-__global__ void matMulTiled(float* d_A, float* d_B, float* d_C, int N) {
+__global__ void matMulTiled(const float* d_A, const float* d_B, float* d_C, int N) {
     // define two matrices in share memory
 
 
@@ -52,7 +54,7 @@ __global__ void matMulTiled(float* d_A, float* d_B, float* d_C, int N) {
  * @param c 
  * @param N 
  */
-__global__ void matMul(const int *a, const int *b, int *c, int N) {
+__global__ void matMul(const float *a, const float *b, float *c, int N) {
   // Compute each thread's global row and column index
   int row = blockIdx.x * blockDim.x + threadIdx.x;
   int col = blockIdx.y * blockDim.y + threadIdx.y;
@@ -67,9 +69,14 @@ __global__ void matMul(const int *a, const int *b, int *c, int N) {
 
 void run_benchmark(int N){
     size_t size = N * N * sizeof(float);
-    vector<float> HA(N * N , 1.5f);
-    vector<float> HB(N * N, 2.0f);
+    vector<float> HA(N * N , 0.0f);
+    vector<float> HB(N * N, 0.0f);
     vector<float> HC(N * N, 0.0f);
+
+    static mt19937 gen{random_device{}()}; 
+    uniform_real_distribution<float> dis(-1, 1);
+    generate(HA.begin(), HA.end(), [&dis]() { return dis(gen); });
+    generate(HB.begin(), HB.end(), [&dis]() { return dis(gen); });
 
     float *DA, *DB, *DC;
     cudaMalloc(&DA, size);
@@ -95,7 +102,10 @@ void run_benchmark(int N){
     cudaEventSynchronize(stop);
     float naive_ms = 0.0f;
     cudaEventElapsedTime(&naive_ms, start, stop);
-
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cout << "CUDA Error: " << cudaGetErrorString(err) << endl;
+    }
 
     cudaEventRecord(start);
     matMulTiled<<<dimGrid, dimBlock>>>(DA, DB, DC, N);
@@ -103,6 +113,10 @@ void run_benchmark(int N){
     cudaEventSynchronize(stop);
     float tile_ms = 0.0f;
     cudaEventElapsedTime(&tile_ms, start, stop);
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cout << "CUDA Error: " << cudaGetErrorString(err) << endl;
+    }
 
     // output to input into python later
     cout << N << "," << naive_ms << "," << tile_ms << endl;
@@ -112,13 +126,11 @@ void run_benchmark(int N){
     cudaFree(DC);
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
-
-
 }
 
 int main(){
     cout<<"Naive,Tiled"<<endl;
-    vector<int> sizes{512, 1024, 2048, 4096, 8192, 16384};
+    vector<int> sizes{512, 1024, 2048, 4096, 8192};
     for (int size : sizes){
         run_benchmark(size);
     }
